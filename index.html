@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>The Clarity Audit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Space+Grotesk:wght@400;500;600;700&display=swap">
+<style>
+  html,body{margin:0;padding:0;height:100%;background:#141a22;}
+  #root{min-height:100vh;}
+  *{box-sizing:border-box;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script type="text/babel" data-presets="react">
+const { useState, useMemo, useEffect, useRef } = React;
+
+
+/*  THE CLARITY AUDIT — powered by the 5D Compass
+    A confidential self-assessment for high-performing men.
+    - 5 dimensions: Man, Lover, Father, Leader, Producer
+    - Two-layer scoring per dimension: Standard (aspiration) + Interference (behavioral)
+    - Output: a single "Alcohol Tax" number + a five-dimension shape
+    - Quiet screening branch routes higher-risk patterns to a support-first result
+    Design: instrument, not quiz. Ink ground, warm paper, one amber accent.
+*/
+
+// ---- palette ----
+const INK = "#141a22";
+const INK2 = "#1c2530";
+const PAPER = "#f4efe6";
+const PAPER2 = "#e9e2d4";
+const AMBER = "#c8873f";
+const AMBER_DK = "#a86e2c";
+const MUTE = "#8b93a0";
+const LINE = "rgba(244,239,230,0.14)";
+const GOOD = "#5b8c6e";
+
+// ---- config ----------------------------------------------------------------
+// Where the "See if you're a fit" button sends people. Paste your GHL booking
+// calendar link or application-form URL here.
+const BOOKING_URL = "https://www.empoweredman.co/strategy-session?el=clarityaudit";
+// The lead is POSTed to /api/submit (same origin), which forwards it to GHL.
+// You do NOT put the GHL webhook URL here — it lives safely on the server as a
+// Vercel environment variable. See README.md.
+const SUBMIT_ENDPOINT = "/api/submit";
+
+// ---- dimensions ----
+const DIMS = [
+  { key: "man", label: "Man", blurb: "Self-respect, integrity, the gap between who you are in public and who you are alone." },
+  { key: "lover", label: "Lover", blurb: "Presence and connection with your partner — or the nightly checkout." },
+  { key: "father", label: "Father", blurb: "The man your kids actually get in the evening." },
+  { key: "leader", label: "Leader", blurb: "Judgment, steadiness, and the respect you command." },
+  { key: "producer", label: "Producer", blurb: "Energy, mornings, follow-through — your edge." },
+];
+
+// Fatherhood is optional; handled by a gate question.
+// Each dimension: one STANDARD item (how high he holds the bar — mostly ego-safe, high)
+// and one/two INTERFERENCE items (behavioral, specific — where the honest number lives).
+// Interference scale 0..4 where higher = more interference (more cost).
+const STANDARD = { label: "This matters to me. I hold a high standard here.", key: "std" };
+
+const QUESTIONS = [
+  // MAN — your relationship with yourself, internal and external
+  { dim: "man", type: "std", text: "You want to be a man you respect — the same guy in private as in public." },
+  { dim: "man", type: "intf", text: "In the last two weeks, how often did you regret how much you drank the night before?" },
+  { dim: "man", type: "intf", text: "How often do you drink more than you meant to?", weight: 1.2 },
+  { dim: "man", type: "intf", text: "How often does drinking make you act like someone you don't want to be?" },
+  // LOVER
+  { dim: "lover", type: "std", text: "Being present with your wife or girlfriend matters to you.", gate: "partner" },
+  { dim: "lover", type: "intf", text: "In the evenings, how often are you there but not present with her?", gate: "partner" },
+  { dim: "lover", type: "intf", text: "How often does drinking make you impatient or distant with her?", gate: "partner" },
+  // FATHER
+  { dim: "father", type: "std", text: "You want to be a dad your kids are proud of.", gate: "father" },
+  { dim: "father", type: "intf", text: "After the day's done, how often do your kids get an impatient or checked-out version of you?", gate: "father" },
+  // LEADER — your effect on others: influence, example, respect
+  { dim: "leader", type: "std", text: "Being someone people look up to and respect matters to you." },
+  { dim: "leader", type: "intf", text: "How often does drinking cost you respect or influence with the people who look to you?" },
+  // PRODUCER — work, business, making money
+  { dim: "producer", type: "std", text: "Doing your best work and driving results matters to you." },
+  { dim: "producer", type: "intf", text: "How often does drinking cost you at work — your drive, your focus, or money left on the table?" },
+];
+
+// One plain off-ramp question. Not a clinical screen — it only exists to catch the
+// unmistakable physical signs (morning drinking / withdrawal) and quietly point that
+// rare man toward a doctor first. For everyone else it never fires; they sail past it.
+const SCREEN = [
+  { key: "morning", text: "One honest one: do you ever drink in the morning, or feel physically shaky or sick when you haven't had a drink?", hard: true },
+];
+
+const FREQ = ["Never", "Rarely", "Sometimes", "Often", "Almost always"]; // 0..4
+const AGREE = ["Not really", "Somewhat", "Mostly", "Completely"]; // std, 0..3 (kept short & high-friendly)
+
+// ---------- scoring ----------
+function computeResults(answers, gates) {
+  // interference per dimension → 0..10 "tax"
+  const perDim = {};
+  DIMS.forEach((d) => (perDim[d.key] = { intf: [], std: null }));
+  QUESTIONS.forEach((q, i) => {
+    if (q.gate && !gates[q.gate]) return;
+    const v = answers[i];
+    if (v == null) return;
+    if (q.type === "std") perDim[q.dim].std = v; // 0..3
+    else perDim[q.dim].intf.push({ v, w: q.weight || 1 });
+  });
+
+  const dimScores = DIMS.map((d) => {
+    const cell = perDim[d.key];
+    if (cell.intf.length === 0) return { key: d.key, label: d.label, tax: null, active: false };
+    // weighted avg interference 0..4 → scale to 0..10
+    let sum = 0, wsum = 0;
+    cell.intf.forEach(({ v, w }) => { sum += v * w; wsum += w; });
+    const intfAvg = sum / wsum; // 0..4
+    // gap amplifier: high standard + high interference = the painful gap. std 0..3.
+    const stdNorm = cell.std == null ? 0.66 : cell.std / 3; // default mid-high
+    const gapBoost = 1 + 0.35 * stdNorm; // up to 1.35x when he holds a high bar
+    let tax = (intfAvg / 4) * 10 * gapBoost;
+    tax = Math.max(0, Math.min(10, tax));
+    return { key: d.key, label: d.label, tax: +tax.toFixed(1), active: true };
+  });
+
+  const active = dimScores.filter((d) => d.active);
+  const overall = active.length
+    ? +(active.reduce((a, d) => a + d.tax, 0) / active.length).toFixed(1)
+    : 0;
+
+  const sorted = [...active].sort((a, b) => b.tax - a.tax);
+  const heaviest = sorted[0];
+  const lightest = sorted[sorted.length - 1];
+
+  return { dimScores, overall, heaviest, lightest, active };
+}
+
+function computeScreen(screenAns) {
+  // Fires only if he reports morning drinking / physical withdrawal — the one pattern
+  // that genuinely sits outside what a performance program should be the first stop for.
+  // "Occasionally" (1) or "Yes" (2) trips it; "No" (0) sails past.
+  const v = screenAns[0];
+  return { refer: v != null && v >= 1 };
+}
+
+function band(score) {
+  if (score < 2.5) return { label: "Low", note: "Alcohol is a light presence — but you looked, and that's the point." };
+  if (score < 5) return { label: "Moderate", note: "A real, recurring tax — mostly invisible until you total it up." };
+  if (score < 7.5) return { label: "Moderate–High", note: "This is costing you more than you'd want to admit, in specific places." };
+  return { label: "High", note: "Alcohol is quietly running more of your life than you're choosing." };
+}
+
+// ---------- shape (pentagon radar) ----------
+function ShapeChart({ dimScores }) {
+  const active = dimScores.filter((d) => d.active);
+  const n = active.length;
+  const size = 300, cx = size / 2, cy = size / 2, R = 108;
+  const [draw, setDraw] = useState(0);
+  useEffect(() => {
+    let raf, start;
+    const step = (t) => {
+      if (!start) start = t;
+      const p = Math.min(1, (t - start) / 900);
+      setDraw(1 - Math.pow(1 - p, 3));
+      if (p < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+  const ang = (i) => (Math.PI * 2 * i) / n - Math.PI / 2;
+  const pt = (i, r) => [cx + Math.cos(ang(i)) * r, cy + Math.sin(ang(i)) * r];
+  const rings = [0.25, 0.5, 0.75, 1];
+  const poly = (r) => active.map((_, i) => pt(i, r).join(",")).join(" ");
+  const dataPts = active.map((d, i) => pt(i, (Math.max(0.06, d.tax / 10)) * R * draw));
+  const dataPoly = dataPts.map((p) => p.join(",")).join(" ");
+
+  return (
+    <svg viewBox={`0 0 ${size} ${size}`} width="100%" style={{ maxWidth: 320, display: "block", margin: "0 auto" }}>
+      {rings.map((r, i) => (
+        <polygon key={i} points={poly(R * r)} fill="none" stroke="rgba(20,26,34,0.10)" strokeWidth="1" />
+      ))}
+      {active.map((_, i) => {
+        const [x, y] = pt(i, R);
+        return <line key={i} x1={cx} y1={cy} x2={x} y2={y} stroke="rgba(20,26,34,0.10)" strokeWidth="1" />;
+      })}
+      <polygon points={dataPoly} fill="rgba(200,135,63,0.22)" stroke={AMBER_DK} strokeWidth="2" strokeLinejoin="round" />
+      {dataPts.map((p, i) => (
+        <circle key={i} cx={p[0]} cy={p[1]} r="3.5" fill={AMBER_DK} />
+      ))}
+      {active.map((d, i) => {
+        const [x, y] = pt(i, R + 24);
+        return (
+          <text key={i} x={x} y={y} textAnchor="middle" dominantBaseline="middle"
+            style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 12, fontWeight: 600, fill: INK }}>
+            {d.label}
+          </text>
+        );
+      })}
+    </svg>
+  );
+}
+
+// ---------- gauge for the number ----------
+function Gauge({ score }) {
+  const [v, setV] = useState(0);
+  useEffect(() => {
+    let raf, start;
+    const step = (t) => {
+      if (!start) start = t;
+      const p = Math.min(1, (t - start) / 1100);
+      setV((1 - Math.pow(1 - p, 3)) * score);
+      if (p < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [score]);
+  const pct = v / 10;
+  const w = 100;
+  return (
+    <div style={{ width: "100%" }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8, justifyContent: "center" }}>
+        <span style={{ fontFamily: "'Fraunces', serif", fontSize: 64, fontWeight: 600, color: INK, lineHeight: 1 }}>
+          {v.toFixed(1)}
+        </span>
+        <span style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 18, color: MUTE }}>/ 10</span>
+      </div>
+      <div style={{ position: "relative", height: 8, background: PAPER2, borderRadius: 20, marginTop: 14, overflow: "hidden" }}>
+        <div style={{ position: "absolute", inset: 0, width: `${pct * w}%`, background: `linear-gradient(90deg, ${AMBER}, ${AMBER_DK})`, borderRadius: 20, transition: "width .1s linear" }} />
+      </div>
+    </div>
+  );
+}
+
+// ---------- UI atoms ----------
+const wrap = { minHeight: "100%", background: INK, color: PAPER, fontFamily: "'Space Grotesk', sans-serif", WebkitFontSmoothing: "antialiased" };
+const shell = { maxWidth: 620, margin: "0 auto", padding: "0 22px" };
+
+function ChoiceRow({ options, value, onChange }) {
+  return (
+    <div style={{ display: "grid", gap: 10, marginTop: 22 }}>
+      {options.map((o, i) => {
+        const sel = value === i;
+        return (
+          <button key={i} onClick={() => onChange(i)}
+            style={{
+              textAlign: "left", padding: "15px 18px", borderRadius: 12, cursor: "pointer",
+              border: `1px solid ${sel ? AMBER : LINE}`,
+              background: sel ? "rgba(200,135,63,0.14)" : INK2,
+              color: sel ? PAPER : "#cfd4dc",
+              fontSize: 15.5, fontFamily: "'Space Grotesk',sans-serif", fontWeight: sel ? 600 : 400,
+              transition: "all .15s ease", display: "flex", alignItems: "center", gap: 12,
+            }}>
+            <span style={{
+              width: 18, height: 18, borderRadius: "50%", flexShrink: 0,
+              border: `2px solid ${sel ? AMBER : "rgba(244,239,230,0.3)"}`,
+              background: sel ? AMBER : "transparent", boxShadow: sel ? `inset 0 0 0 3px ${INK2}` : "none",
+            }} />
+            {o}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ---------- main ----------
+function ClarityAudit() {
+  const [stage, setStage] = useState("intro"); // intro, gate, q, screen, email, results
+  const [gates, setGates] = useState({ partner: null, father: null });
+  const [answers, setAnswers] = useState({});
+  const [screenAns, setScreenAns] = useState({});
+  const [qi, setQi] = useState(0);
+  const [si, setSi] = useState(0);
+  const [email, setEmail] = useState("");
+  const topRef = useRef(null);
+
+  // build active question list based on gates
+  const activeQs = useMemo(
+    () => QUESTIONS.map((q, idx) => ({ q, idx })).filter(({ q }) => !q.gate || gates[q.gate]),
+    [gates]
+  );
+
+  useEffect(() => { if (topRef.current) topRef.current.scrollTop = 0; }, [stage, qi, si]);
+
+  const results = useMemo(() => computeResults(answers, gates), [answers, gates]);
+  const screen = useMemo(() => computeScreen(screenAns), [screenAns]);
+
+  const totalSteps = activeQs.length + SCREEN.length;
+  const doneSteps = (stage === "q" ? qi : stage === "screen" ? activeQs.length + si : 0);
+  const progress = Math.min(1, doneSteps / totalSteps);
+
+  // ---- send the lead + scores to GHL (via our /api/submit forwarder) --------
+  // Fire-and-forget: we never block the results screen on the network. If the
+  // submit fails, the visitor still sees their results; only the CRM row is lost.
+  const submitLead = () => {
+    const dims = {};
+    results.dimScores.forEach((d) => { dims[d.key] = d.active ? d.tax : null; });
+    const payload = {
+      email: email,
+      overall_tax: results.overall,
+      band: band(results.overall).label,
+      man: dims.man,
+      lover: dims.lover,
+      father: dims.father,
+      leader: dims.leader,
+      producer: dims.producer,
+      // Percentages (0-100) so the results email can draw bar widths from them.
+      overall_pct: Math.round(results.overall * 10),
+      man_pct: dims.man == null ? 0 : Math.round(dims.man * 10),
+      lover_pct: dims.lover == null ? 0 : Math.round(dims.lover * 10),
+      father_pct: dims.father == null ? 0 : Math.round(dims.father * 10),
+      leader_pct: dims.leader == null ? 0 : Math.round(dims.leader * 10),
+      producer_pct: dims.producer == null ? 0 : Math.round(dims.producer * 10),
+      heaviest: results.heaviest ? results.heaviest.label : null,
+      lightest: results.lightest ? results.lightest.label : null,
+      refer: screen.refer,
+      has_partner: gates.partner,
+      has_children: gates.father,
+      submitted_at: new Date().toISOString(),
+    };
+    try {
+      fetch(SUBMIT_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        keepalive: true,
+      }).catch(() => {});
+    } catch (e) { /* never let a submit error break the UX */ }
+  };
+
+  // ---- INTRO ----
+  if (stage === "intro")
+    return (
+      <div style={wrap} ref={topRef}>
+        <div style={{ ...shell, paddingTop: 64, paddingBottom: 64 }}>
+          <div style={{ fontSize: 12, letterSpacing: 3, textTransform: "uppercase", color: AMBER, fontWeight: 600 }}>
+            Confidential · 3 minutes
+          </div>
+          <h1 style={{ fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: 42, lineHeight: 1.08, margin: "18px 0 0", color: PAPER, letterSpacing: "-0.5px" }}>
+            What is alcohol<br />actually costing you?
+          </h1>
+          <p style={{ fontSize: 17, lineHeight: 1.6, color: "#c3cad4", marginTop: 20, maxWidth: 520 }}>
+            You audit everything else. This is the one input most successful men never total up.
+            No labels. No lectures. Just an honest read on where drinking is quietly taxing the man
+            you're trying to be — across five dimensions of your life.
+          </p>
+          <ul style={{ listStyle: "none", padding: 0, margin: "26px 0 0", display: "grid", gap: 12 }}>
+            {["It's built for high performers, not for 'alcoholics.'",
+              "Your answers are yours — this runs privately in your browser.",
+              "You'll get a number and a picture of where it lands."].map((tx, i) => (
+              <li key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start", color: "#cfd4dc", fontSize: 15 }}>
+                <span style={{ color: AMBER, marginTop: 1 }}>—</span>{tx}
+              </li>
+            ))}
+          </ul>
+          <button onClick={() => setStage("gate")} style={ctaStyle}>Begin the audit →</button>
+          <p style={{ fontSize: 12.5, color: MUTE, marginTop: 26, lineHeight: 1.6 }}>
+            This is a self-reflection tool, not a medical or diagnostic instrument. It doesn't diagnose
+            anything or replace professional advice.
+          </p>
+        </div>
+      </div>
+    );
+
+  // ---- GATE (context: partner / kids) ----
+  if (stage === "gate")
+    return (
+      <div style={wrap} ref={topRef}>
+        <div style={{ ...shell, paddingTop: 56, paddingBottom: 64 }}>
+          <StepLabel>A little context</StepLabel>
+          <GateQ label="Do you have a partner or spouse?"
+            val={gates.partner}
+            onSet={(v) => setGates((g) => ({ ...g, partner: v }))} />
+          <GateQ label="Do you have children?"
+            val={gates.father}
+            onSet={(v) => setGates((g) => ({ ...g, father: v }))} />
+          <button
+            disabled={gates.partner == null || gates.father == null}
+            onClick={() => { setStage("q"); setQi(0); }}
+            style={{ ...ctaStyle, opacity: gates.partner == null || gates.father == null ? 0.4 : 1, cursor: gates.partner == null || gates.father == null ? "not-allowed" : "pointer" }}>
+            Continue →
+          </button>
+          <p style={{ fontSize: 12.5, color: MUTE, marginTop: 18 }}>
+            This just tailors which dimensions we measure. Nothing is stored.
+          </p>
+        </div>
+      </div>
+    );
+
+  // ---- QUESTIONS ----
+  if (stage === "q") {
+    const { q, idx } = activeQs[qi];
+    const dim = DIMS.find((d) => d.key === q.dim);
+    const opts = q.type === "std" ? AGREE : FREQ;
+    const val = answers[idx];
+    const canNext = val != null;
+    const next = () => {
+      if (qi + 1 < activeQs.length) setQi(qi + 1);
+      else { setStage("screen"); setSi(0); }
+    };
+    const back = () => { if (qi > 0) setQi(qi - 1); else setStage("gate"); };
+    return (
+      <div style={wrap} ref={topRef}>
+        <Progress p={progress} />
+        <div style={{ ...shell, paddingTop: 40, paddingBottom: 48 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+            <span style={{ fontSize: 11, letterSpacing: 2.5, textTransform: "uppercase", color: AMBER, fontWeight: 700 }}>{dim.label}</span>
+            <span style={{ fontSize: 12, color: MUTE }}>· {qi + 1} of {activeQs.length}</span>
+          </div>
+          <h2 style={{ fontFamily: "'Fraunces', serif", fontWeight: 500, fontSize: 26, lineHeight: 1.25, color: PAPER, margin: "4px 0 0", letterSpacing: "-0.3px" }}>
+            {q.text}
+          </h2>
+          <ChoiceRow options={opts} value={val} onChange={(i) => setAnswers((a) => ({ ...a, [idx]: i }))} />
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 30, alignItems: "center" }}>
+            <button onClick={back} style={backStyle}>← Back</button>
+            <button onClick={next} disabled={!canNext} style={{ ...ctaSmall, opacity: canNext ? 1 : 0.4, cursor: canNext ? "pointer" : "not-allowed" }}>
+              {qi + 1 < activeQs.length ? "Next →" : "Almost done →"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ---- SCREEN ----
+  if (stage === "screen") {
+    const s = SCREEN[si];
+    const opts = s.hard ? ["No", "Occasionally", "Yes"] : FREQ;
+    const val = screenAns[si];
+    const canNext = val != null;
+    const next = () => {
+      if (si + 1 < SCREEN.length) setSi(si + 1);
+      else setStage("email");
+    };
+    const back = () => { if (si > 0) setSi(si - 1); else { setStage("q"); setQi(activeQs.length - 1); } };
+    return (
+      <div style={wrap} ref={topRef}>
+        <Progress p={progress} />
+        <div style={{ ...shell, paddingTop: 40, paddingBottom: 48 }}>
+          <div style={{ fontSize: 11, letterSpacing: 2.5, textTransform: "uppercase", color: AMBER, fontWeight: 700, marginBottom: 8 }}>
+            Last one
+          </div>
+          <h2 style={{ fontFamily: "'Fraunces', serif", fontWeight: 500, fontSize: 26, lineHeight: 1.25, color: PAPER, margin: "4px 0 0" }}>
+            {s.text}
+          </h2>
+          <ChoiceRow options={opts} value={val} onChange={(i) => setScreenAns((a) => ({ ...a, [si]: i }))} />
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 30, alignItems: "center" }}>
+            <button onClick={back} style={backStyle}>← Back</button>
+            <button onClick={next} disabled={!canNext} style={{ ...ctaSmall, opacity: canNext ? 1 : 0.4, cursor: canNext ? "pointer" : "not-allowed" }}>
+              {si + 1 < SCREEN.length ? "Next →" : "See my results →"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ---- EMAIL GATE ----
+  if (stage === "email") {
+    const valid = /\S+@\S+\.\S+/.test(email);
+    return (
+      <div style={wrap} ref={topRef}>
+        <div style={{ ...shell, paddingTop: 64, paddingBottom: 64 }}>
+          <StepLabel>Your read is ready</StepLabel>
+          <h2 style={{ fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: 32, lineHeight: 1.15, color: PAPER, margin: "10px 0 0" }}>
+            Where should we send<br />your Clarity Audit?
+          </h2>
+          <p style={{ fontSize: 15.5, color: "#c3cad4", lineHeight: 1.6, marginTop: 16, maxWidth: 500 }}>
+            You'll see your results on the next screen. We'll also email you the full breakdown — your
+            number, your five-dimension shape, and what it means — so you have it when you're ready.
+          </p>
+          <input
+            type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@company.com"
+            onKeyDown={(e) => { if (e.key === "Enter" && valid) { submitLead(); setStage("results"); } }}
+            style={{
+              width: "100%", boxSizing: "border-box", marginTop: 24, padding: "16px 18px",
+              borderRadius: 12, border: `1px solid ${LINE}`, background: INK2, color: PAPER,
+              fontSize: 16, fontFamily: "'Space Grotesk',sans-serif", outline: "none",
+            }} />
+          <button disabled={!valid} onClick={() => { submitLead(); setStage("results"); }}
+            style={{ ...ctaStyle, opacity: valid ? 1 : 0.4, cursor: valid ? "pointer" : "not-allowed" }}>
+            Show my results →
+          </button>
+          <button onClick={() => setStage("results")} style={{ ...backStyle, marginTop: 16, display: "block" }}>
+            Skip — just show me
+          </button>
+          <p style={{ fontSize: 12, color: MUTE, marginTop: 22 }}>
+            Your results are saved to our system and emailed to you. We never share your address.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ---- RESULTS ----
+  const b = band(results.overall);
+  const refer = screen.refer;
+
+  return (
+    <div style={{ ...wrap, background: PAPER, color: INK }} ref={topRef}>
+      <div style={{ ...shell, paddingTop: 52, paddingBottom: 72 }}>
+        <div style={{ fontSize: 12, letterSpacing: 3, textTransform: "uppercase", color: AMBER_DK, fontWeight: 700 }}>
+          Your Clarity Audit
+        </div>
+
+        {/* SUPPORT-FIRST BRANCH */}
+        {refer && (
+          <div style={{ marginTop: 20, padding: "22px 22px", borderRadius: 14, background: "#fff", border: `1px solid ${PAPER2}`, borderLeft: `5px solid ${AMBER_DK}` }}>
+            <h2 style={{ fontFamily: "'Fraunces',serif", fontWeight: 600, fontSize: 24, margin: 0, color: INK }}>
+              One honest thing first.
+            </h2>
+            <p style={{ fontSize: 15.5, lineHeight: 1.65, color: "#3a4250", marginTop: 12 }}>
+              What you flagged about the mornings is worth a real conversation with a doctor — the physical
+              side is one thing that's genuinely better handled there first than in any coaching, ours
+              included. No judgment, just the straight move. Your results are still yours to read below.
+            </p>
+            <p style={{ fontSize: 14, lineHeight: 1.6, color: "#5a626e", marginTop: 10 }}>
+              If it helps, SAMHSA's free, confidential line is <strong>1-800-662-4357</strong>.
+            </p>
+          </div>
+        )}
+
+        {/* THE NUMBER */}
+        <h1 style={{ fontFamily: "'Fraunces',serif", fontWeight: 600, fontSize: 30, lineHeight: 1.15, margin: "26px 0 4px", letterSpacing: "-0.4px" }}>
+          Your alcohol tax
+        </h1>
+        <p style={{ fontSize: 14.5, color: "#5a626e" }}>Higher means it's costing you more. Most men have never put a number on this.</p>
+        <div style={{ background: "#fff", borderRadius: 16, padding: "30px 24px 26px", marginTop: 16, border: `1px solid ${PAPER2}` }}>
+          <Gauge score={results.overall} />
+          <div style={{ textAlign: "center", marginTop: 18 }}>
+            <span style={{ display: "inline-block", padding: "5px 14px", borderRadius: 20, background: "rgba(200,135,63,0.15)", color: AMBER_DK, fontWeight: 700, fontSize: 13, letterSpacing: 0.5 }}>
+              {b.label}
+            </span>
+            <p style={{ fontSize: 15, color: "#3a4250", marginTop: 14, lineHeight: 1.55, maxWidth: 420, marginInline: "auto" }}>{b.note}</p>
+          </div>
+        </div>
+
+        {/* THE SHAPE */}
+        <h2 style={{ fontFamily: "'Fraunces',serif", fontWeight: 600, fontSize: 24, margin: "40px 0 4px" }}>
+          Where it lands
+        </h2>
+        <p style={{ fontSize: 14.5, color: "#5a626e", marginBottom: 8 }}>
+          The tax is never spread evenly. Here's your shape.
+        </p>
+        <div style={{ background: "#fff", borderRadius: 16, padding: "24px 16px 18px", border: `1px solid ${PAPER2}` }}>
+          <ShapeChart dimScores={results.dimScores} />
+        </div>
+
+        {/* READ: lightest first (ego-safe), then heaviest (the blow) */}
+        {results.lightest && results.heaviest && (
+          <div style={{ marginTop: 22, display: "grid", gap: 12 }}>
+            <ReadCard tone="good"
+              kicker={`Strongest — ${results.lightest.label}`}
+              body={`Alcohol is barely touching how you show up as a ${results.lightest.label}. You protect this. Worth noticing — it proves this isn't about willpower or character.`} />
+            <ReadCard tone="amber"
+              kicker={`Heaviest — ${results.heaviest.label}`}
+              body={`This is where the tax is landing hardest. It's the gap between the standard you hold as a ${results.heaviest.label} and what alcohol is actually leaving on the table. It's also the most winnable — because you already care most here.`} />
+          </div>
+        )}
+
+        {/* DIMENSION BARS */}
+        <div style={{ marginTop: 24, background: "#fff", borderRadius: 16, padding: "20px 22px", border: `1px solid ${PAPER2}` }}>
+          {results.dimScores.filter(d=>d.active).sort((a,b)=>b.tax-a.tax).map((d) => (
+            <div key={d.key} style={{ marginBottom: 14 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13.5, marginBottom: 5 }}>
+                <span style={{ fontWeight: 600 }}>{d.label}</span>
+                <span style={{ color: AMBER_DK, fontWeight: 700 }}>{d.tax.toFixed(1)}</span>
+              </div>
+              <div style={{ height: 7, background: PAPER2, borderRadius: 10, overflow: "hidden" }}>
+                <div style={{ height: "100%", width: `${d.tax * 10}%`, background: `linear-gradient(90deg,${AMBER},${AMBER_DK})`, borderRadius: 10 }} />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* CTA — soft for referral case, direct otherwise */}
+        <div style={{ marginTop: 40, background: INK, borderRadius: 18, padding: "32px 26px", color: PAPER }}>
+          <h2 style={{ fontFamily: "'Fraunces',serif", fontWeight: 600, fontSize: 25, lineHeight: 1.2, margin: 0 }}>
+            {refer ? "When you're ready, the door's open." : "Now you can see it. The next question is what it's worth to close the gap."}
+          </h2>
+          <p style={{ fontSize: 15, color: "#c3cad4", lineHeight: 1.6, marginTop: 14 }}>
+            {refer
+              ? "Once you've got the right support in place, this work is here — becoming the man behind the results, not just managing the drink."
+              : "This audit shows you the cost. The 90-day work is about becoming the man who no longer needs what alcohol was giving you — starting with your heaviest dimension. It's not recovery. It's integration."}
+          </p>
+          {!refer && (
+            <button style={{ ...ctaStyle, marginTop: 22, background: AMBER, color: INK }}
+              onClick={() => { window.location.href = BOOKING_URL; }}>
+              See if you're a fit →
+            </button>
+          )}
+          <button onClick={() => { setStage("intro"); setAnswers({}); setScreenAns({}); setQi(0); setSi(0); setEmail(""); setGates({ partner: null, father: null }); }}
+            style={{ ...backStyle, color: refer ? "#c3cad4" : "#c3cad4", marginTop: refer ? 20 : 14, display: "block" }}>
+            ↺ Retake the audit
+          </button>
+        </div>
+
+        <p style={{ fontSize: 12, color: MUTE, marginTop: 26, lineHeight: 1.6, textAlign: "center" }}>
+          The Clarity Audit is a self-reflection tool, not a diagnosis. If you're concerned about your
+          drinking or your health, speak with a qualified professional.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ---------- small components ----------
+function StepLabel({ children }) {
+  return <div style={{ fontSize: 12, letterSpacing: 3, textTransform: "uppercase", color: AMBER, fontWeight: 600 }}>{children}</div>;
+}
+function GateQ({ label, val, onSet }) {
+  return (
+    <div style={{ marginTop: 26 }}>
+      <div style={{ fontFamily: "'Fraunces',serif", fontSize: 20, color: PAPER, marginBottom: 12 }}>{label}</div>
+      <div style={{ display: "flex", gap: 10 }}>
+        {[["Yes", true], ["No", false]].map(([l, v]) => {
+          const sel = val === v;
+          return (
+            <button key={l} onClick={() => onSet(v)}
+              style={{
+                flex: 1, padding: "13px 0", borderRadius: 11, cursor: "pointer",
+                border: `1px solid ${sel ? AMBER : LINE}`,
+                background: sel ? "rgba(200,135,63,0.16)" : INK2,
+                color: sel ? PAPER : "#cfd4dc", fontWeight: sel ? 700 : 400, fontSize: 15,
+                fontFamily: "'Space Grotesk',sans-serif",
+              }}>{l}</button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+function Progress({ p }) {
+  return (
+    <div style={{ position: "sticky", top: 0, height: 3, background: "rgba(244,239,230,0.1)", zIndex: 5 }}>
+      <div style={{ height: "100%", width: `${p * 100}%`, background: AMBER, transition: "width .35s ease" }} />
+    </div>
+  );
+}
+function ReadCard({ kicker, body, tone }) {
+  const accent = tone === "good" ? GOOD : AMBER_DK;
+  return (
+    <div style={{ background: "#fff", borderRadius: 14, padding: "18px 20px", border: `1px solid ${PAPER2}`, borderLeft: `5px solid ${accent}` }}>
+      <div style={{ fontSize: 11.5, letterSpacing: 1.5, textTransform: "uppercase", color: accent, fontWeight: 700 }}>{kicker}</div>
+      <p style={{ fontSize: 15, lineHeight: 1.6, color: "#3a4250", margin: "8px 0 0" }}>{body}</p>
+    </div>
+  );
+}
+
+const ctaStyle = {
+  marginTop: 34, width: "100%", padding: "17px 0", borderRadius: 12, border: "none",
+  background: AMBER, color: INK, fontSize: 16.5, fontWeight: 700, cursor: "pointer",
+  fontFamily: "'Space Grotesk',sans-serif", letterSpacing: 0.2,
+};
+const ctaSmall = {
+  padding: "13px 26px", borderRadius: 11, border: "none", background: AMBER, color: INK,
+  fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "'Space Grotesk',sans-serif",
+};
+const backStyle = {
+  background: "none", border: "none", color: MUTE, fontSize: 14.5, cursor: "pointer",
+  fontFamily: "'Space Grotesk',sans-serif", padding: 4,
+};
+
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<ClarityAudit />);
+</script>
+</body>
+</html>

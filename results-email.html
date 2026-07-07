@@ -1,0 +1,158 @@
+<!--
+  THE CLARITY AUDIT — results email
+  Paste this into a GoHighLevel email template using a "Custom HTML / Code" element.
+
+  The {{contact.xxx}} tokens are GHL merge fields. The field KEYS below must match
+  the custom fields you create in GHL (see ghl-setup-guide.md, step 1). GHL will
+  swap each token for that contact's value — including inside the bar "width:" styles,
+  which is how each person gets their own bar lengths.
+
+  Colours match the audit: ink #141a22, paper #f4efe6, amber #c8873f.
+  Everything is inline-styled and table-based so it renders in real inboxes
+  (no JavaScript, which is why there's no animated gauge or pentagon here).
+-->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#141a22;margin:0;padding:0;">
+  <tr>
+    <td align="center" style="padding:32px 16px;">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:600px;background:#f4efe6;border-radius:16px;overflow:hidden;font-family:Arial,Helvetica,sans-serif;">
+
+        <!-- header -->
+        <tr>
+          <td style="background:#141a22;padding:28px 32px;">
+            <div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#c8873f;font-weight:bold;">
+              The Clarity Audit
+            </div>
+            <div style="font-size:24px;color:#f4efe6;font-weight:bold;margin-top:10px;line-height:1.2;">
+              Here's your read, {{contact.first_name}}.
+            </div>
+          </td>
+        </tr>
+
+        <!-- the number -->
+        <tr>
+          <td style="padding:32px 32px 8px 32px;">
+            <div style="font-size:14px;color:#5a626e;">Your alcohol tax</div>
+            <div style="margin-top:6px;">
+              <span style="font-size:56px;font-weight:bold;color:#141a22;line-height:1;">{{contact.alcohol_tax}}</span>
+              <span style="font-size:18px;color:#8b93a0;"> / 10</span>
+            </div>
+            <div style="margin-top:14px;">
+              <span style="display:inline-block;padding:5px 14px;border-radius:20px;background:#f0dcc3;color:#a86e2c;font-weight:bold;font-size:13px;letter-spacing:0.5px;">
+                {{contact.alcohol_band}}
+              </span>
+            </div>
+            <p style="font-size:15px;line-height:1.6;color:#3a4250;margin:18px 0 0 0;">
+              Higher means it's costing you more. Most men never put a number on this — you just did.
+            </p>
+          </td>
+        </tr>
+
+        <!-- where it lands -->
+        <tr>
+          <td style="padding:28px 32px 8px 32px;">
+            <div style="font-size:18px;font-weight:bold;color:#141a22;">Where it lands</div>
+            <p style="font-size:14px;color:#5a626e;margin:6px 0 18px 0;">
+              The tax is never spread evenly. Here's your shape across the five dimensions.
+            </p>
+
+            <!-- Man -->
+            <div style="margin-bottom:14px;">
+              <div style="font-size:14px;color:#141a22;font-weight:bold;">Man
+                <span style="float:right;color:#a86e2c;">{{contact.man_score}}</span>
+              </div>
+              <div style="background:#e9e2d4;border-radius:10px;height:8px;margin-top:6px;font-size:0;line-height:0;">
+                <div style="background:#c8873f;height:8px;border-radius:10px;width:{{contact.man_pct}}%;">&nbsp;</div>
+              </div>
+            </div>
+
+            <!-- Lover -->
+            <div style="margin-bottom:14px;">
+              <div style="font-size:14px;color:#141a22;font-weight:bold;">Lover
+                <span style="float:right;color:#a86e2c;">{{contact.lover_score}}</span>
+              </div>
+              <div style="background:#e9e2d4;border-radius:10px;height:8px;margin-top:6px;font-size:0;line-height:0;">
+                <div style="background:#c8873f;height:8px;border-radius:10px;width:{{contact.lover_pct}}%;">&nbsp;</div>
+              </div>
+            </div>
+
+            <!-- Father -->
+            <div style="margin-bottom:14px;">
+              <div style="font-size:14px;color:#141a22;font-weight:bold;">Father
+                <span style="float:right;color:#a86e2c;">{{contact.father_score}}</span>
+              </div>
+              <div style="background:#e9e2d4;border-radius:10px;height:8px;margin-top:6px;font-size:0;line-height:0;">
+                <div style="background:#c8873f;height:8px;border-radius:10px;width:{{contact.father_pct}}%;">&nbsp;</div>
+              </div>
+            </div>
+
+            <!-- Leader -->
+            <div style="margin-bottom:14px;">
+              <div style="font-size:14px;color:#141a22;font-weight:bold;">Leader
+                <span style="float:right;color:#a86e2c;">{{contact.leader_score}}</span>
+              </div>
+              <div style="background:#e9e2d4;border-radius:10px;height:8px;margin-top:6px;font-size:0;line-height:0;">
+                <div style="background:#c8873f;height:8px;border-radius:10px;width:{{contact.leader_pct}}%;">&nbsp;</div>
+              </div>
+            </div>
+
+            <!-- Producer -->
+            <div style="margin-bottom:4px;">
+              <div style="font-size:14px;color:#141a22;font-weight:bold;">Producer
+                <span style="float:right;color:#a86e2c;">{{contact.producer_score}}</span>
+              </div>
+              <div style="background:#e9e2d4;border-radius:10px;height:8px;margin-top:6px;font-size:0;line-height:0;">
+                <div style="background:#c8873f;height:8px;border-radius:10px;width:{{contact.producer_pct}}%;">&nbsp;</div>
+              </div>
+            </div>
+          </td>
+        </tr>
+
+        <!-- strongest / heaviest -->
+        <tr>
+          <td style="padding:20px 32px 8px 32px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;border-left:5px solid #5b8c6e;">
+              <tr><td style="padding:16px 18px;">
+                <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#5b8c6e;font-weight:bold;">Strongest — {{contact.lightest_dimension}}</div>
+                <p style="font-size:14px;line-height:1.6;color:#3a4250;margin:8px 0 0 0;">Alcohol is barely touching how you show up here. You protect this — proof this isn't about willpower or character.</p>
+              </td></tr>
+            </table>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;border-left:5px solid #a86e2c;margin-top:12px;">
+              <tr><td style="padding:16px 18px;">
+                <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#a86e2c;font-weight:bold;">Heaviest — {{contact.heaviest_dimension}}</div>
+                <p style="font-size:14px;line-height:1.6;color:#3a4250;margin:8px 0 0 0;">This is where the tax lands hardest — the gap between the standard you hold and what alcohol is leaving on the table. It's also the most winnable, because you already care most here.</p>
+              </td></tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- CTA -->
+        <tr>
+          <td style="padding:24px 32px 32px 32px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#141a22;border-radius:16px;">
+              <tr><td style="padding:28px 26px;">
+                <div style="font-size:20px;font-weight:bold;color:#f4efe6;line-height:1.25;">The next question is what it's worth to close the gap.</div>
+                <p style="font-size:14px;color:#c3cad4;line-height:1.6;margin:12px 0 0 0;">
+                  This audit shows you the cost. The work is about becoming the man who no longer needs what alcohol was giving you — starting with your heaviest dimension.
+                </p>
+                <a href="https://www.empoweredman.co/strategy-session?el=clarityaudit"
+                   style="display:inline-block;margin-top:20px;background:#c8873f;color:#141a22;text-decoration:none;font-weight:bold;font-size:16px;padding:15px 28px;border-radius:12px;">
+                  See if you're a fit →
+                </a>
+              </td></tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- footer -->
+        <tr>
+          <td style="padding:0 32px 28px 32px;">
+            <p style="font-size:12px;color:#8b93a0;line-height:1.6;margin:0;">
+              The Clarity Audit is a self-reflection tool, not a diagnosis. If you're concerned about your drinking or your health, speak with a qualified professional.
+            </p>
+          </td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
