@@ -13,12 +13,8 @@
   #root{min-height:100vh;}
   *{box-sizing:border-box;}
   ::selection{background:rgba(200,135,63,0.30);color:#f4efe6;}
-
-  /* fluid screen entrance */
   @keyframes fadeInUp{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
   .screen{animation:fadeInUp .55s cubic-bezier(.22,.61,.36,1) both;}
-
-  /* drifting aurora anchored to the screen (fills it, no seam) */
   .ink-bg{position:relative;overflow:hidden;}
   .ink-bg::before{
     content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
@@ -30,24 +26,17 @@
   }
   .ink-bg>*{position:relative;z-index:1;}
   @keyframes drift{0%{transform:translate3d(0,0,0) scale(1);}100%{transform:translate3d(0,-2%,0) scale(1.06);}}
-
-  /* buttons */
   .btn,.btn-small{transition:transform .18s cubic-bezier(.22,.61,.36,1),box-shadow .18s ease,filter .18s ease;will-change:transform;}
   .btn-primary:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 12px 32px rgba(200,135,63,0.30);filter:brightness(1.03);}
   .btn-primary:active:not(:disabled){transform:translateY(0) scale(.99);}
   .btn-small:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 6px 18px rgba(200,135,63,0.28);}
   .btn-ghost{transition:color .18s ease,transform .18s ease;}
   .btn-ghost:hover{color:#f4efe6 !important;transform:translateX(-2px);}
-
-  /* inputs */
   .field{transition:border-color .2s ease,box-shadow .2s ease,background .2s ease;}
   .field:focus{border-color:#c8873f !important;box-shadow:0 0 0 3px rgba(200,135,63,0.18);}
   .field::placeholder{color:#6b7280;}
-
-  /* option cards */
   .choice{transition:transform .16s cubic-bezier(.22,.61,.36,1),border-color .16s ease,background .16s ease,box-shadow .16s ease;}
   .choice:hover{transform:translateY(-1px);border-color:rgba(200,135,63,0.6) !important;box-shadow:0 6px 20px rgba(0,0,0,0.25);}
-
   @media (prefers-reduced-motion: reduce){
     .screen{animation:none;}
     .ink-bg::before{animation:none;}
@@ -410,6 +399,8 @@ function Gauge({
 // ---------- UI atoms ----------
 const wrap = {
   minHeight: "100vh",
+  display: "flex",
+  flexDirection: "column",
   background: INK,
   color: PAPER,
   fontFamily: "'Space Grotesk', sans-serif",
@@ -417,7 +408,8 @@ const wrap = {
 };
 const shell = {
   maxWidth: 620,
-  margin: "0 auto",
+  width: "100%",
+  margin: "auto",
   padding: "0 22px"
 };
 function ChoiceRow({
