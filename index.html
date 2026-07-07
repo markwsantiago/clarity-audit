@@ -25,14 +25,7 @@ const {
   useRef
 } = React;
 
-/*  THE CLARITY AUDIT — powered by the 5D Compass
-    A confidential self-assessment for high-performing men.
-    - 5 dimensions: Man, Lover, Father, Leader, Producer
-    - Two-layer scoring per dimension: Standard (aspiration) + Interference (behavioral)
-    - Output: a single "Alcohol Tax" number + a five-dimension shape
-    - Quiet screening branch routes higher-risk patterns to a support-first result
-    Design: instrument, not quiz. Ink ground, warm paper, one amber accent.
-*/
+/*  THE CLARITY AUDIT — powered by the 5D Compass */
 
 // ---- palette ----
 const INK = "#141a22";
@@ -45,13 +38,8 @@ const MUTE = "#8b93a0";
 const LINE = "rgba(244,239,230,0.14)";
 const GOOD = "#5b8c6e";
 
-// ---- config ----------------------------------------------------------------
-// Where the "See if you're a fit" button sends people. Paste your GHL booking
-// calendar link or application-form URL here.
+// ---- config ----
 const BOOKING_URL = "https://www.empoweredman.co/strategy-session?el=clarityaudit";
-// The lead is POSTed to /api/submit (same origin), which forwards it to GHL.
-// You do NOT put the GHL webhook URL here — it lives safely on the server as a
-// Vercel environment variable. See README.md.
 const SUBMIT_ENDPOINT = "/api/submit";
 
 // ---- dimensions ----
@@ -76,18 +64,11 @@ const DIMS = [{
   label: "Producer",
   blurb: "Energy, mornings, follow-through — your edge."
 }];
-
-// Fatherhood is optional; handled by a gate question.
-// Each dimension: one STANDARD item (how high he holds the bar — mostly ego-safe, high)
-// and one/two INTERFERENCE items (behavioral, specific — where the honest number lives).
-// Interference scale 0..4 where higher = more interference (more cost).
 const STANDARD = {
   label: "This matters to me. I hold a high standard here.",
   key: "std"
 };
-const QUESTIONS = [
-// MAN — your relationship with yourself, internal and external
-{
+const QUESTIONS = [{
   dim: "man",
   type: "std",
   text: "You want to be a man you respect — the same guy in private as in public."
@@ -104,9 +85,7 @@ const QUESTIONS = [
   dim: "man",
   type: "intf",
   text: "How often does drinking make you act like someone you don't want to be?"
-},
-// LOVER
-{
+}, {
   dim: "lover",
   type: "std",
   text: "Being present with your wife or girlfriend matters to you.",
@@ -121,9 +100,7 @@ const QUESTIONS = [
   type: "intf",
   text: "How often does drinking make you impatient or distant with her?",
   gate: "partner"
-},
-// FATHER
-{
+}, {
   dim: "father",
   type: "std",
   text: "You want to be a dad your kids are proud of.",
@@ -133,9 +110,7 @@ const QUESTIONS = [
   type: "intf",
   text: "After the day's done, how often do your kids get an impatient or checked-out version of you?",
   gate: "father"
-},
-// LEADER — your effect on others: influence, example, respect
-{
+}, {
   dim: "leader",
   type: "std",
   text: "Being someone people look up to and respect matters to you."
@@ -143,9 +118,7 @@ const QUESTIONS = [
   dim: "leader",
   type: "intf",
   text: "How often does drinking cost you respect or influence with the people who look to you?"
-},
-// PRODUCER — work, business, making money
-{
+}, {
   dim: "producer",
   type: "std",
   text: "Doing your best work and driving results matters to you."
@@ -154,21 +127,16 @@ const QUESTIONS = [
   type: "intf",
   text: "How often does drinking cost you at work — your drive, your focus, or money left on the table?"
 }];
-
-// One plain off-ramp question. Not a clinical screen — it only exists to catch the
-// unmistakable physical signs (morning drinking / withdrawal) and quietly point that
-// rare man toward a doctor first. For everyone else it never fires; they sail past it.
 const SCREEN = [{
   key: "morning",
   text: "One honest one: do you ever drink in the morning, or feel physically shaky or sick when you haven't had a drink?",
   hard: true
 }];
-const FREQ = ["Never", "Rarely", "Sometimes", "Often", "Almost always"]; // 0..4
-const AGREE = ["Not really", "Somewhat", "Mostly", "Completely"]; // std, 0..3 (kept short & high-friendly)
+const FREQ = ["Never", "Rarely", "Sometimes", "Often", "Almost always"];
+const AGREE = ["Not really", "Somewhat", "Mostly", "Completely"];
 
 // ---------- scoring ----------
 function computeResults(answers, gates) {
-  // interference per dimension → 0..10 "tax"
   const perDim = {};
   DIMS.forEach(d => perDim[d.key] = {
     intf: [],
@@ -178,8 +146,7 @@ function computeResults(answers, gates) {
     if (q.gate && !gates[q.gate]) return;
     const v = answers[i];
     if (v == null) return;
-    if (q.type === "std") perDim[q.dim].std = v; // 0..3
-    else perDim[q.dim].intf.push({
+    if (q.type === "std") perDim[q.dim].std = v;else perDim[q.dim].intf.push({
       v,
       w: q.weight || 1
     });
@@ -192,7 +159,6 @@ function computeResults(answers, gates) {
       tax: null,
       active: false
     };
-    // weighted avg interference 0..4 → scale to 0..10
     let sum = 0,
       wsum = 0;
     cell.intf.forEach(({
@@ -202,10 +168,9 @@ function computeResults(answers, gates) {
       sum += v * w;
       wsum += w;
     });
-    const intfAvg = sum / wsum; // 0..4
-    // gap amplifier: high standard + high interference = the painful gap. std 0..3.
-    const stdNorm = cell.std == null ? 0.66 : cell.std / 3; // default mid-high
-    const gapBoost = 1 + 0.35 * stdNorm; // up to 1.35x when he holds a high bar
+    const intfAvg = sum / wsum;
+    const stdNorm = cell.std == null ? 0.66 : cell.std / 3;
+    const gapBoost = 1 + 0.35 * stdNorm;
     let tax = intfAvg / 4 * 10 * gapBoost;
     tax = Math.max(0, Math.min(10, tax));
     return {
@@ -229,9 +194,6 @@ function computeResults(answers, gates) {
   };
 }
 function computeScreen(screenAns) {
-  // Fires only if he reports morning drinking / physical withdrawal — the one pattern
-  // that genuinely sits outside what a performance program should be the first stop for.
-  // "Occasionally" (1) or "Yes" (2) trips it; "No" (0) sails past.
   const v = screenAns[0];
   return {
     refer: v != null && v >= 1
@@ -339,7 +301,7 @@ function ShapeChart({
   }));
 }
 
-// ---------- gauge for the number ----------
+// ---------- gauge ----------
 function Gauge({
   score
 }) {
@@ -464,7 +426,7 @@ function ChoiceRow({
 
 // ---------- main ----------
 function ClarityAudit() {
-  const [stage, setStage] = useState("intro"); // intro, gate, q, screen, email, results
+  const [stage, setStage] = useState("intro");
   const [gates, setGates] = useState({
     partner: null,
     father: null
@@ -474,9 +436,9 @@ function ClarityAudit() {
   const [qi, setQi] = useState(0);
   const [si, setSi] = useState(0);
   const [email, setEmail] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const topRef = useRef(null);
-
-  // build active question list based on gates
   const activeQs = useMemo(() => QUESTIONS.map((q, idx) => ({
     q,
     idx
@@ -491,10 +453,6 @@ function ClarityAudit() {
   const totalSteps = activeQs.length + SCREEN.length;
   const doneSteps = stage === "q" ? qi : stage === "screen" ? activeQs.length + si : 0;
   const progress = Math.min(1, doneSteps / totalSteps);
-
-  // ---- send the lead + scores to GHL (via our /api/submit forwarder) --------
-  // Fire-and-forget: we never block the results screen on the network. If the
-  // submit fails, the visitor still sees their results; only the CRM row is lost.
   const submitLead = () => {
     const dims = {};
     results.dimScores.forEach(d => {
@@ -502,6 +460,8 @@ function ClarityAudit() {
     });
     const payload = {
       email: email,
+      first_name: firstName,
+      last_name: lastName,
       overall_tax: results.overall,
       band: band(results.overall).label,
       man: dims.man,
@@ -509,7 +469,6 @@ function ClarityAudit() {
       father: dims.father,
       leader: dims.leader,
       producer: dims.producer,
-      // Percentages (0-100) so the results email can draw bar widths from them.
       overall_pct: Math.round(results.overall * 10),
       man_pct: dims.man == null ? 0 : Math.round(dims.man * 10),
       lover_pct: dims.lover == null ? 0 : Math.round(dims.lover * 10),
@@ -532,7 +491,7 @@ function ClarityAudit() {
         body: JSON.stringify(payload),
         keepalive: true
       }).catch(() => {});
-    } catch (e) {/* never let a submit error break the UX */}
+    } catch (e) {}
   };
 
   // ---- INTRO ----
@@ -605,7 +564,7 @@ function ClarityAudit() {
     }
   }, "This is a self-reflection tool, not a medical or diagnostic instrument. It doesn't diagnose anything or replace professional advice.")));
 
-  // ---- GATE (context: partner / kids) ----
+  // ---- GATE ----
   if (stage === "gate") return /*#__PURE__*/React.createElement("div", {
     style: wrap,
     ref: topRef
@@ -808,9 +767,22 @@ function ClarityAudit() {
     }, si + 1 < SCREEN.length ? "Next →" : "See my results →"))));
   }
 
-  // ---- EMAIL GATE ----
+  // ---- EMAIL / LEAD GATE ----
   if (stage === "email") {
-    const valid = /\S+@\S+\.\S+/.test(email);
+    const valid = firstName.trim() !== "" && lastName.trim() !== "" && /\S+@\S+\.\S+/.test(email);
+    const fieldStyle = {
+      width: "100%",
+      boxSizing: "border-box",
+      marginTop: 12,
+      padding: "16px 18px",
+      borderRadius: 12,
+      border: `1px solid ${LINE}`,
+      background: INK2,
+      color: PAPER,
+      fontSize: 16,
+      fontFamily: "'Space Grotesk',sans-serif",
+      outline: "none"
+    };
     return /*#__PURE__*/React.createElement("div", {
       style: wrap,
       ref: topRef
@@ -838,6 +810,21 @@ function ClarityAudit() {
         maxWidth: 500
       }
     }, "You'll see your results on the next screen. We'll also email you the full breakdown — your number, your five-dimension shape, and what it means — so you have it when you're ready."), /*#__PURE__*/React.createElement("input", {
+      type: "text",
+      value: firstName,
+      onChange: e => setFirstName(e.target.value),
+      placeholder: "First name",
+      style: {
+        ...fieldStyle,
+        marginTop: 24
+      }
+    }), /*#__PURE__*/React.createElement("input", {
+      type: "text",
+      value: lastName,
+      onChange: e => setLastName(e.target.value),
+      placeholder: "Last name",
+      style: fieldStyle
+    }), /*#__PURE__*/React.createElement("input", {
       type: "email",
       value: email,
       onChange: e => setEmail(e.target.value),
@@ -848,19 +835,7 @@ function ClarityAudit() {
           setStage("results");
         }
       },
-      style: {
-        width: "100%",
-        boxSizing: "border-box",
-        marginTop: 24,
-        padding: "16px 18px",
-        borderRadius: 12,
-        border: `1px solid ${LINE}`,
-        background: INK2,
-        color: PAPER,
-        fontSize: 16,
-        fontFamily: "'Space Grotesk',sans-serif",
-        outline: "none"
-      }
+      style: fieldStyle
     }), /*#__PURE__*/React.createElement("button", {
       disabled: !valid,
       onClick: () => {
@@ -872,14 +847,7 @@ function ClarityAudit() {
         opacity: valid ? 1 : 0.4,
         cursor: valid ? "pointer" : "not-allowed"
       }
-    }, "Show my results →"), /*#__PURE__*/React.createElement("button", {
-      onClick: () => setStage("results"),
-      style: {
-        ...backStyle,
-        marginTop: 16,
-        display: "block"
-      }
-    }, "Skip — just show me"), /*#__PURE__*/React.createElement("p", {
+    }, "Show my results →"), /*#__PURE__*/React.createElement("p", {
       style: {
         fontSize: 12,
         color: MUTE,
@@ -1112,6 +1080,8 @@ function ClarityAudit() {
       setQi(0);
       setSi(0);
       setEmail("");
+      setFirstName("");
+      setLastName("");
       setGates({
         partner: null,
         father: null
