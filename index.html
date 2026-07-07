@@ -9,8 +9,51 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Space+Grotesk:wght@400;500;600;700&display=swap">
 <style>
   html,body{margin:0;padding:0;height:100%;background:#141a22;}
+  html{scroll-behavior:smooth;}
   #root{min-height:100vh;}
   *{box-sizing:border-box;}
+  ::selection{background:rgba(200,135,63,0.30);color:#f4efe6;}
+
+  /* fluid screen entrance */
+  @keyframes fadeInUp{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
+  .screen{animation:fadeInUp .55s cubic-bezier(.22,.61,.36,1) both;}
+
+  /* drifting aurora behind dark screens */
+  .ink-bg{position:relative;overflow-x:hidden;}
+  .ink-bg::before{
+    content:"";position:fixed;inset:-25%;z-index:0;pointer-events:none;
+    background:
+      radial-gradient(38% 38% at 18% 22%, rgba(200,135,63,0.12), transparent 60%),
+      radial-gradient(34% 34% at 82% 28%, rgba(91,140,110,0.10), transparent 60%),
+      radial-gradient(46% 46% at 62% 92%, rgba(200,135,63,0.07), transparent 62%);
+    filter:blur(24px);
+    animation:drift 20s ease-in-out infinite alternate;
+  }
+  .ink-bg>*{position:relative;z-index:1;}
+  @keyframes drift{0%{transform:translate3d(0,0,0) scale(1);}100%{transform:translate3d(0,-3%,0) scale(1.10);}}
+
+  /* buttons */
+  .btn,.btn-small{transition:transform .18s cubic-bezier(.22,.61,.36,1),box-shadow .18s ease,filter .18s ease;will-change:transform;}
+  .btn-primary:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 12px 32px rgba(200,135,63,0.30);filter:brightness(1.03);}
+  .btn-primary:active:not(:disabled){transform:translateY(0) scale(.99);}
+  .btn-small:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 6px 18px rgba(200,135,63,0.28);}
+  .btn-ghost{transition:color .18s ease,transform .18s ease;}
+  .btn-ghost:hover{color:#f4efe6 !important;transform:translateX(-2px);}
+
+  /* inputs */
+  .field{transition:border-color .2s ease,box-shadow .2s ease,background .2s ease;}
+  .field:focus{border-color:#c8873f !important;box-shadow:0 0 0 3px rgba(200,135,63,0.18);}
+  .field::placeholder{color:#6b7280;}
+
+  /* option cards */
+  .choice{transition:transform .16s cubic-bezier(.22,.61,.36,1),border-color .16s ease,background .16s ease,box-shadow .16s ease;}
+  .choice:hover{transform:translateY(-1px);border-color:rgba(200,135,63,0.6) !important;box-shadow:0 6px 20px rgba(0,0,0,0.25);}
+
+  @media (prefers-reduced-motion: reduce){
+    .screen{animation:none;}
+    .ink-bg::before{animation:none;}
+    .btn,.btn-small,.btn-ghost,.field,.choice{transition:none;}
+  }
 </style>
 </head>
 <body>
@@ -393,6 +436,7 @@ function ChoiceRow({
     const sel = value === i;
     return /*#__PURE__*/React.createElement("button", {
       key: i,
+      className: "choice",
       onClick: () => onChange(i),
       style: {
         textAlign: "left",
@@ -497,7 +541,9 @@ function ClarityAudit() {
   // ---- INTRO ----
   if (stage === "intro") return /*#__PURE__*/React.createElement("div", {
     style: wrap,
-    ref: topRef
+    ref: topRef,
+    className: "screen ink-bg",
+    key: `${stage}-${qi}-${si}`
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       ...shell,
@@ -554,6 +600,7 @@ function ClarityAudit() {
     }
   }, "—"), tx))), /*#__PURE__*/React.createElement("button", {
     onClick: () => setStage("gate"),
+    className: "btn btn-primary",
     style: ctaStyle
   }, "Begin the audit →"), /*#__PURE__*/React.createElement("p", {
     style: {
@@ -567,7 +614,9 @@ function ClarityAudit() {
   // ---- GATE ----
   if (stage === "gate") return /*#__PURE__*/React.createElement("div", {
     style: wrap,
-    ref: topRef
+    ref: topRef,
+    className: "screen ink-bg",
+    key: `${stage}-${qi}-${si}`
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       ...shell,
@@ -590,6 +639,7 @@ function ClarityAudit() {
     }))
   }), /*#__PURE__*/React.createElement("button", {
     disabled: gates.partner == null || gates.father == null,
+    className: "btn btn-primary",
     onClick: () => {
       setStage("q");
       setQi(0);
@@ -628,7 +678,9 @@ function ClarityAudit() {
     };
     return /*#__PURE__*/React.createElement("div", {
       style: wrap,
-      ref: topRef
+      ref: topRef,
+      className: "screen ink-bg",
+      key: `${stage}-${qi}-${si}`
     }, /*#__PURE__*/React.createElement(Progress, {
       p: progress
     }), /*#__PURE__*/React.createElement("div", {
@@ -683,10 +735,12 @@ function ClarityAudit() {
       }
     }, /*#__PURE__*/React.createElement("button", {
       onClick: back,
+      className: "btn-ghost",
       style: backStyle
     }, "← Back"), /*#__PURE__*/React.createElement("button", {
       onClick: next,
       disabled: !canNext,
+      className: "btn btn-small",
       style: {
         ...ctaSmall,
         opacity: canNext ? 1 : 0.4,
@@ -712,7 +766,9 @@ function ClarityAudit() {
     };
     return /*#__PURE__*/React.createElement("div", {
       style: wrap,
-      ref: topRef
+      ref: topRef,
+      className: "screen ink-bg",
+      key: `${stage}-${qi}-${si}`
     }, /*#__PURE__*/React.createElement(Progress, {
       p: progress
     }), /*#__PURE__*/React.createElement("div", {
@@ -755,10 +811,12 @@ function ClarityAudit() {
       }
     }, /*#__PURE__*/React.createElement("button", {
       onClick: back,
+      className: "btn-ghost",
       style: backStyle
     }, "← Back"), /*#__PURE__*/React.createElement("button", {
       onClick: next,
       disabled: !canNext,
+      className: "btn btn-small",
       style: {
         ...ctaSmall,
         opacity: canNext ? 1 : 0.4,
@@ -785,7 +843,9 @@ function ClarityAudit() {
     };
     return /*#__PURE__*/React.createElement("div", {
       style: wrap,
-      ref: topRef
+      ref: topRef,
+      className: "screen ink-bg",
+      key: `${stage}-${qi}-${si}`
     }, /*#__PURE__*/React.createElement("div", {
       style: {
         ...shell,
@@ -811,6 +871,7 @@ function ClarityAudit() {
       }
     }, "You'll see your results on the next screen. We'll also email you the full breakdown — your number, your five-dimension shape, and what it means — so you have it when you're ready."), /*#__PURE__*/React.createElement("input", {
       type: "text",
+      className: "field",
       value: firstName,
       onChange: e => setFirstName(e.target.value),
       placeholder: "First name",
@@ -820,12 +881,14 @@ function ClarityAudit() {
       }
     }), /*#__PURE__*/React.createElement("input", {
       type: "text",
+      className: "field",
       value: lastName,
       onChange: e => setLastName(e.target.value),
       placeholder: "Last name",
       style: fieldStyle
     }), /*#__PURE__*/React.createElement("input", {
       type: "email",
+      className: "field",
       value: email,
       onChange: e => setEmail(e.target.value),
       placeholder: "you@company.com",
@@ -838,6 +901,7 @@ function ClarityAudit() {
       style: fieldStyle
     }), /*#__PURE__*/React.createElement("button", {
       disabled: !valid,
+      className: "btn btn-primary",
       onClick: () => {
         submitLead();
         setStage("results");
@@ -865,7 +929,9 @@ function ClarityAudit() {
       background: PAPER,
       color: INK
     },
-    ref: topRef
+    ref: topRef,
+    className: "screen",
+    key: "results"
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       ...shell,
@@ -1069,10 +1135,12 @@ function ClarityAudit() {
       background: AMBER,
       color: INK
     },
+    className: "btn btn-primary",
     onClick: () => {
       window.location.href = BOOKING_URL;
     }
   }, "See if you're a fit →"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-ghost",
     onClick: () => {
       setStage("intro");
       setAnswers({});
@@ -1143,6 +1211,7 @@ function GateQ({
     const sel = val === v;
     return /*#__PURE__*/React.createElement("button", {
       key: l,
+      className: "choice",
       onClick: () => onSet(v),
       style: {
         flex: 1,
