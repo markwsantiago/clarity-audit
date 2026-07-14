@@ -70,7 +70,8 @@ const LINE = "rgba(244,239,230,0.14)";
 const GOOD = "#5b8c6e";
 
 // ---- config ----
-const BOOKING_URL = "https://www.empoweredman.co/strategy-session?el=clarityaudit";
+const BOOKING_URL = "https://go.oncehub.com/15-MinuteClarityCall";
+const PRIVACY_URL = "https://empoweredman.co/privacy-policy/";
 const SUBMIT_ENDPOINT = "/api/submit";
 
 // ---- dimensions ----
@@ -600,7 +601,15 @@ function ClarityAudit() {
       marginTop: 26,
       lineHeight: 1.6
     }
-  }, "This is a self-reflection tool, not a medical or diagnostic instrument. It doesn't diagnose anything or replace professional advice.")));
+  }, "This is a self-reflection tool, not a medical or diagnostic instrument. It doesn't diagnose anything or replace professional advice.", " ", /*#__PURE__*/React.createElement("a", {
+    href: PRIVACY_URL,
+    target: "_blank",
+    rel: "noopener noreferrer",
+    style: {
+      color: MUTE,
+      textDecoration: "underline"
+    }
+  }, "Privacy Policy"))));
 
   // ---- GATE ----
   if (stage === "gate") return /*#__PURE__*/React.createElement("div", {
@@ -908,7 +917,15 @@ function ClarityAudit() {
         color: MUTE,
         marginTop: 22
       }
-    }, "Your results are saved to our system and emailed to you. We never share your address.")));
+    }, "Your results are saved to our system and emailed to you. We never share your address.", " ", /*#__PURE__*/React.createElement("a", {
+      href: PRIVACY_URL,
+      target: "_blank",
+      rel: "noopener noreferrer",
+      style: {
+        color: AMBER,
+        textDecoration: "underline"
+      }
+    }, "Privacy Policy"))));
   }
 
   // ---- RESULTS ----
@@ -1160,7 +1177,15 @@ function ClarityAudit() {
       lineHeight: 1.6,
       textAlign: "center"
     }
-  }, "The Clarity Audit is a self-reflection tool, not a diagnosis. If you're concerned about your drinking or your health, speak with a qualified professional.")));
+  }, "The Clarity Audit is a self-reflection tool, not a diagnosis. If you're concerned about your drinking or your health, speak with a qualified professional.", " ", /*#__PURE__*/React.createElement("a", {
+    href: PRIVACY_URL,
+    target: "_blank",
+    rel: "noopener noreferrer",
+    style: {
+      color: AMBER_DK,
+      textDecoration: "underline"
+    }
+  }, "Privacy Policy"))));
 }
 
 // ---------- small components ----------
