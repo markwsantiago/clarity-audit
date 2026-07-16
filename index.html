@@ -4,6 +4,24 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>The Clarity Audit</title>
+
+<!-- Meta Pixel Code -->
+<script>
+!function(f,b,e,v,n,t,s)
+{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+n.queue=[];t=b.createElement(e);t.async=!0;
+t.src=v;s=b.getElementsByTagName(e)[0];
+s.parentNode.insertBefore(t,s)}(window, document,'script',
+'https://connect.facebook.net/en_US/fbevents.js');
+fbq('init', '230228771885501');
+fbq('track', 'PageView');
+</script>
+<noscript><img height="1" width="1" style="display:none"
+src="https://www.facebook.com/tr?id=230228771885501&ev=PageView&noscript=1"/></noscript>
+<!-- End Meta Pixel Code -->
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Space+Grotesk:wght@400;500;600;700&display=swap">
@@ -159,11 +177,6 @@ const QUESTIONS = [{
   type: "intf",
   text: "How often does drinking cost you at work — your drive, your focus, or money left on the table?"
 }];
-const SCREEN = [{
-  key: "morning",
-  text: "One honest one: do you ever drink in the morning, or feel physically shaky or sick when you haven't had a drink?",
-  hard: true
-}];
 const FREQ = ["Never", "Rarely", "Sometimes", "Often", "Almost always"];
 const AGREE = ["Not really", "Somewhat", "Mostly", "Completely"];
 
@@ -223,12 +236,6 @@ function computeResults(answers, gates) {
     heaviest,
     lightest,
     active
-  };
-}
-function computeScreen(screenAns) {
-  const v = screenAns[0];
-  return {
-    refer: v != null && v >= 1
   };
 }
 function band(score) {
@@ -468,9 +475,7 @@ function ClarityAudit() {
     father: null
   });
   const [answers, setAnswers] = useState({});
-  const [screenAns, setScreenAns] = useState({});
   const [qi, setQi] = useState(0);
-  const [si, setSi] = useState(0);
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -483,11 +488,19 @@ function ClarityAudit() {
   }) => !q.gate || gates[q.gate]), [gates]);
   useEffect(() => {
     if (topRef.current) topRef.current.scrollTop = 0;
-  }, [stage, qi, si]);
+  }, [stage, qi]);
+  useEffect(() => {
+    if (stage === "results") {
+      try {
+        if (window.fbq) window.fbq("track", "ViewContent", {
+          content_name: "Clarity Audit Results"
+        });
+      } catch (e) {}
+    }
+  }, [stage]);
   const results = useMemo(() => computeResults(answers, gates), [answers, gates]);
-  const screen = useMemo(() => computeScreen(screenAns), [screenAns]);
-  const totalSteps = activeQs.length + SCREEN.length;
-  const doneSteps = stage === "q" ? qi : stage === "screen" ? activeQs.length + si : 0;
+  const totalSteps = activeQs.length;
+  const doneSteps = stage === "q" ? qi : 0;
   const progress = Math.min(1, doneSteps / totalSteps);
   const submitLead = () => {
     const dims = {};
@@ -513,7 +526,7 @@ function ClarityAudit() {
       producer_pct: dims.producer == null ? 0 : Math.round(dims.producer * 10),
       heaviest: results.heaviest ? results.heaviest.label : null,
       lightest: results.lightest ? results.lightest.label : null,
-      refer: screen.refer,
+      refer: false,
       has_partner: gates.partner,
       has_children: gates.father,
       submitted_at: new Date().toISOString()
@@ -528,6 +541,9 @@ function ClarityAudit() {
         keepalive: true
       }).catch(() => {});
     } catch (e) {}
+    try {
+      if (window.fbq) window.fbq("track", "Lead");
+    } catch (e) {}
   };
 
   // ---- INTRO ----
@@ -535,7 +551,7 @@ function ClarityAudit() {
     style: wrap,
     ref: topRef,
     className: "screen ink-bg",
-    key: `${stage}-${qi}-${si}`
+    key: `${stage}-${qi}`
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       ...shell,
@@ -616,7 +632,7 @@ function ClarityAudit() {
     style: wrap,
     ref: topRef,
     className: "screen ink-bg",
-    key: `${stage}-${qi}-${si}`
+    key: `${stage}-${qi}`
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       ...shell,
@@ -668,10 +684,7 @@ function ClarityAudit() {
     const val = answers[idx];
     const canNext = val != null;
     const next = () => {
-      if (qi + 1 < activeQs.length) setQi(qi + 1);else {
-        setStage("screen");
-        setSi(0);
-      }
+      if (qi + 1 < activeQs.length) setQi(qi + 1);else setStage("email");
     };
     const back = () => {
       if (qi > 0) setQi(qi - 1);else setStage("gate");
@@ -680,7 +693,7 @@ function ClarityAudit() {
       style: wrap,
       ref: topRef,
       className: "screen ink-bg",
-      key: `${stage}-${qi}-${si}`
+      key: `${stage}-${qi}`
     }, /*#__PURE__*/React.createElement(Progress, {
       p: progress
     }), /*#__PURE__*/React.createElement("div", {
@@ -746,83 +759,7 @@ function ClarityAudit() {
         opacity: canNext ? 1 : 0.4,
         cursor: canNext ? "pointer" : "not-allowed"
       }
-    }, qi + 1 < activeQs.length ? "Next →" : "Almost done →"))));
-  }
-
-  // ---- SCREEN ----
-  if (stage === "screen") {
-    const s = SCREEN[si];
-    const opts = s.hard ? ["No", "Occasionally", "Yes"] : FREQ;
-    const val = screenAns[si];
-    const canNext = val != null;
-    const next = () => {
-      if (si + 1 < SCREEN.length) setSi(si + 1);else setStage("email");
-    };
-    const back = () => {
-      if (si > 0) setSi(si - 1);else {
-        setStage("q");
-        setQi(activeQs.length - 1);
-      }
-    };
-    return /*#__PURE__*/React.createElement("div", {
-      style: wrap,
-      ref: topRef,
-      className: "screen ink-bg",
-      key: `${stage}-${qi}-${si}`
-    }, /*#__PURE__*/React.createElement(Progress, {
-      p: progress
-    }), /*#__PURE__*/React.createElement("div", {
-      style: {
-        ...shell,
-        paddingTop: 40,
-        paddingBottom: 48
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 11,
-        letterSpacing: 2.5,
-        textTransform: "uppercase",
-        color: AMBER,
-        fontWeight: 700,
-        marginBottom: 8
-      }
-    }, "Last one"), /*#__PURE__*/React.createElement("h2", {
-      style: {
-        fontFamily: "'Fraunces', serif",
-        fontWeight: 500,
-        fontSize: 26,
-        lineHeight: 1.25,
-        color: PAPER,
-        margin: "4px 0 0"
-      }
-    }, s.text), /*#__PURE__*/React.createElement(ChoiceRow, {
-      options: opts,
-      value: val,
-      onChange: i => setScreenAns(a => ({
-        ...a,
-        [si]: i
-      }))
-    }), /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: "flex",
-        justifyContent: "space-between",
-        marginTop: 30,
-        alignItems: "center"
-      }
-    }, /*#__PURE__*/React.createElement("button", {
-      onClick: back,
-      className: "btn-ghost",
-      style: backStyle
-    }, "← Back"), /*#__PURE__*/React.createElement("button", {
-      onClick: next,
-      disabled: !canNext,
-      className: "btn btn-small",
-      style: {
-        ...ctaSmall,
-        opacity: canNext ? 1 : 0.4,
-        cursor: canNext ? "pointer" : "not-allowed"
-      }
-    }, si + 1 < SCREEN.length ? "Next →" : "See my results →"))));
+    }, qi + 1 < activeQs.length ? "Next →" : "See my results →"))));
   }
 
   // ---- EMAIL / LEAD GATE ----
@@ -845,7 +782,7 @@ function ClarityAudit() {
       style: wrap,
       ref: topRef,
       className: "screen ink-bg",
-      key: `${stage}-${qi}-${si}`
+      key: `${stage}-${qi}`
     }, /*#__PURE__*/React.createElement("div", {
       style: {
         ...shell,
@@ -930,7 +867,6 @@ function ClarityAudit() {
 
   // ---- RESULTS ----
   const b = band(results.overall);
-  const refer = screen.refer;
   return /*#__PURE__*/React.createElement("div", {
     style: {
       ...wrap,
@@ -954,38 +890,7 @@ function ClarityAudit() {
       color: AMBER_DK,
       fontWeight: 700
     }
-  }, "Your Clarity Audit"), refer && /*#__PURE__*/React.createElement("div", {
-    style: {
-      marginTop: 20,
-      padding: "22px 22px",
-      borderRadius: 14,
-      background: "#fff",
-      border: `1px solid ${PAPER2}`,
-      borderLeft: `5px solid ${AMBER_DK}`
-    }
-  }, /*#__PURE__*/React.createElement("h2", {
-    style: {
-      fontFamily: "'Fraunces',serif",
-      fontWeight: 600,
-      fontSize: 24,
-      margin: 0,
-      color: INK
-    }
-  }, "One honest thing first."), /*#__PURE__*/React.createElement("p", {
-    style: {
-      fontSize: 15.5,
-      lineHeight: 1.65,
-      color: "#3a4250",
-      marginTop: 12
-    }
-  }, "What you flagged about the mornings is worth a real conversation with a doctor — the physical side is one thing that's genuinely better handled there first than in any coaching, ours included. No judgment, just the straight move. Your results are still yours to read below."), /*#__PURE__*/React.createElement("p", {
-    style: {
-      fontSize: 14,
-      lineHeight: 1.6,
-      color: "#5a626e",
-      marginTop: 10
-    }
-  }, "If it helps, SAMHSA's free, confidential line is ", /*#__PURE__*/React.createElement("strong", null, "1-800-662-4357"), ".")), /*#__PURE__*/React.createElement("h1", {
+  }, "Your Clarity Audit"), /*#__PURE__*/React.createElement("h1", {
     style: {
       fontFamily: "'Fraunces',serif",
       fontWeight: 600,
@@ -1129,14 +1034,14 @@ function ClarityAudit() {
       lineHeight: 1.2,
       margin: 0
     }
-  }, refer ? "When you're ready, the door's open." : "Now you can see it. The next question is what it's worth to close the gap."), /*#__PURE__*/React.createElement("p", {
+  }, "Now you can see it. The next question is what it's worth to close the gap."), /*#__PURE__*/React.createElement("p", {
     style: {
       fontSize: 15,
       color: "#c3cad4",
       lineHeight: 1.6,
       marginTop: 14
     }
-  }, refer ? "Once you've got the right support in place, this work is here — becoming the man behind the results, not just managing the drink." : "This audit shows you the cost. The 90-day work is about becoming the man who no longer needs what alcohol was giving you — starting with your heaviest dimension. It's not recovery. It's integration."), !refer && /*#__PURE__*/React.createElement("button", {
+  }, "This audit shows you the cost. The 90-day work is about becoming the man who no longer needs what alcohol was giving you — starting with your heaviest dimension. It's not recovery. It's integration."), /*#__PURE__*/React.createElement("button", {
     style: {
       ...ctaStyle,
       marginTop: 22,
@@ -1152,9 +1057,7 @@ function ClarityAudit() {
     onClick: () => {
       setStage("intro");
       setAnswers({});
-      setScreenAns({});
       setQi(0);
-      setSi(0);
       setEmail("");
       setFirstName("");
       setLastName("");
@@ -1165,8 +1068,8 @@ function ClarityAudit() {
     },
     style: {
       ...backStyle,
-      color: refer ? "#c3cad4" : "#c3cad4",
-      marginTop: refer ? 20 : 14,
+      color: "#c3cad4",
+      marginTop: 14,
       display: "block"
     }
   }, "↺ Retake the audit")), /*#__PURE__*/React.createElement("p", {
